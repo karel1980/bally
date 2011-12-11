@@ -1,0 +1,5 @@
+TODO:
+
+move the 'grid' stuff into a separate class.
+
+use a listener to have balls report their expiry
