@@ -1,12 +1,15 @@
 require 'gtk2'
 
-class GameContext
+class Bally
   attr_accessor :images,:tiles,:height,:width,:steps,:pb,:drawingarea,:gc
 
-  def initialize(window)
-    @window=window
-    @images={}
+  def initialize()
+    @width=800
+    @height=600
+    @gridwidth=10
+    @gridheight=10
 
+    @images={}
     @steps=25
     puts "Preloading images"
     (0..@steps).each { |i|
@@ -16,10 +19,19 @@ class GameContext
       images[name] = Gdk::Pixbuf.new("images/#{name}.png")
     }
 
-    @width=800
-    @height=600
-    @gridwidth=10
-    @gridheight=10
+    build_ui()
+  end
+
+  def build_ui
+    @window=window=Gtk::Window.new
+    window.set_title("Bally")
+    window.border_width=10
+    window.show_all
+    window.set_size_request(@width, @height)
+
+    window.signal_connect("destroy") {
+      Gtk.main_quit
+    }
 
     @drawingarea=Gtk::DrawingArea.new
     window.add(@drawingarea)
@@ -48,31 +60,15 @@ class GameContext
     @gc.foreground=Gdk::Color.new(0,0,0)
     @drawingarea.window.draw_rectangle(gc, false, x_offset, y_offset, gridsize, gridsize)
   end
-end
-
-class Bally
-  def initialize
-  end
 
   def start
-    window=Gtk::Window.new
-    window.set_title("Bally")
-    window.border_width=10
-    window.show_all
-    @ctx = GameContext.new(window)
-    window.set_size_request(@ctx.width, @ctx.height)
-
-
-    window.signal_connect("destroy") {
-      Gtk.main_quit
-    }
 
     @balls=[]
 
-    area=@ctx.drawingarea
+    area=drawingarea
     area.add_events(Gdk::Event::BUTTON_PRESS_MASK)
     area.signal_connect("button-press-event") { |e,d|
-      @balls << Ball.new(0,5,@ctx)
+      @balls << Ball.new(0,5,self)
     }
     
     @grid=[]
@@ -84,19 +80,19 @@ class Bally
       true
     }
 
-    window.show_all
+    @window.show_all
     Gtk.main
   end
 
   def update_positions
-    @balls.each { |ball| ball.update @ctx }
+    @balls.each { |ball| ball.update self }
     @balls.delete_if { |ball| not ball.keep? }
   end
 
   def update_graphics
-    @ctx.draw_grid()
+    draw_grid()
     @balls.each_with_index { |ball,idx|
-      ball.draw @ctx
+      ball.draw self
     }
   end
 end
