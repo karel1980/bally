@@ -1,7 +1,7 @@
 require 'gtk2'
 
 class Bally
-  attr_accessor :images,:tiles,:height,:width,:steps,:pb,:drawingarea,:gc
+  attr_accessor :images,:tiles,:height,:width,:steps,:pb,:drawingarea,:gc,:gridwidth,:gridheight
 
   def initialize()
     @width=800
@@ -27,7 +27,7 @@ class Bally
     window.set_title("Bally")
     window.border_width=10
     window.show_all
-    window.set_size_request(@width, @height)
+    window.set_size_request(width, height)
 
     window.signal_connect("destroy") {
       Gtk.main_quit
@@ -35,7 +35,7 @@ class Bally
 
     @drawingarea=Gtk::DrawingArea.new
     window.add(@drawingarea)
-    @drawingarea.set_size_request(400, 400)
+    @drawingarea.set_size_request(width, height)
     @gc=Gdk::GC.new(@drawingarea.window)
 
   end
@@ -58,7 +58,12 @@ class Bally
   
   def draw_grid()
     @gc.foreground=Gdk::Color.new(0,0,0)
-    @drawingarea.window.draw_rectangle(gc, false, x_offset, y_offset, gridsize, gridsize)
+    (0..@gridwidth).each { |i|
+      @drawingarea.window.draw_line(gc, x_offset + i*width/gridwidth, y_offset, x_offset + i*width/gridwidth, y_offset+height)
+    }
+    (0..@gridheight).each { |i|
+      @drawingarea.window.draw_line(gc, x_offset, y_offset + i*height/gridheight, x_offset + width/gridheight, y_offset+ + i*height/gridheight)
+    }
   end
 
   def start
