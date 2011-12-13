@@ -25,6 +25,9 @@ class Bally
       name="yspin%02d"%i
       images[name] = Gdk::Pixbuf.new("images/#{name}.png")
     }
+    ["up","down","left","right"].each { |name|
+      images[name] = Gdk::Pixbuf.new("images/#{name}.png")
+    }
 
     build_ui()
   end
@@ -114,9 +117,32 @@ class Bally
     #TODO:clear the drawingarea (which is already double buffered IIUC)
 
     draw_grid()
+    draw_arrows()
     @balls.each_with_index { |ball,idx|
       ball.draw self
     }
+  end
+
+  def draw_arrows()
+    @gridwidth.times { |row|
+      @gridheight.times { |col|
+        dir=@grid[row][col]
+        if dir
+          center = gridcenter(row,col)
+          pb = images[arrow_image dir]
+          gx = center[0] - pb.width/2
+          gy = center[1] - pb.height/2
+          drawingarea.window.draw_pixbuf(gc, pb, 0, 0, gx, gy, -1, -1, Gdk::RGB::DITHER_NONE, -1, -1)
+        end
+      }
+    }
+  end
+
+  def arrow_image(dir)
+    return "up" if dir[1]==-1
+    return "down" if dir[1]==1
+    return "left" if dir[0]==-1
+    return "right" if dir[0]==1
   end
 
   def ball_expired(ball)
@@ -168,6 +194,7 @@ class Ball
   end
 
 end
+
 
 bally=Bally.new
 bally.start()
