@@ -12,6 +12,8 @@ class Bally
 
     @grid=[]
     @gridwidth.times { @grid << Array.new(gridheight) }
+    @start=[0,5]
+    @stop=[6,9]
     @grid[3][5]=[0,-1]
     @grid[3][2]=[1,0]
     @grid[6][2]=[0,1]
@@ -25,7 +27,7 @@ class Bally
       name="yspin%02d"%i
       images[name] = Gdk::Pixbuf.new("images/#{name}.png")
     }
-    ["up","down","left","right"].each { |name|
+    ["up","down","left","right","start","stop"].each { |name|
       images[name] = Gdk::Pixbuf.new("images/#{name}.png")
     }
 
@@ -65,6 +67,8 @@ class Bally
   end
 
   def draw_grid()
+    @drawingarea.window.draw_rectangle(@drawingarea.style.bg_gc(@drawingarea.state), true, 0, 0, width, height)
+
     @gc.foreground=Gdk::Color.new(0,0,0)
     w,h = levelsize
     # Draw vertical lines
@@ -88,13 +92,19 @@ class Bally
   end
 
   def start
-
     @balls=[]
 
     area=drawingarea
     area.add_events(Gdk::Event::BUTTON_PRESS_MASK)
     area.signal_connect("button-press-event") { |e,d|
-      @balls << Ball.new(0,5,self)
+      row = ((d.y - y_offset)*gridwidth/levelsize[0]).to_int
+      column = ((d.x - x_offset)*gridheight/levelsize[1]).to_int
+      puts "clicked in ", row, column
+
+      puts @start, [row,column]
+      if @start==[row,column]
+        @balls << Ball.new(0,5,self)
+      end
     }
     
     Gtk.timeout_add(30) {
@@ -117,7 +127,22 @@ class Bally
     #TODO:clear the drawingarea (which is already double buffered IIUC)
 
     draw_grid()
+    draw_start_stop()
     draw_arrows()
+    draw_balls()
+  end
+
+  def draw_start_stop()
+    center_image gridcenter(@start[0], @start[1]), "start"
+    center_image gridcenter(@stop[0], @stop[1]), "stop"
+  end
+
+  def center_image(center, image_name)
+    pb=images[image_name]
+    drawingarea.window.draw_pixbuf(gc, pb, 0, 0, center[0]-pb.width/2, center[1]-pb.height/2, -1, -1, Gdk::RGB::DITHER_NONE, -1, -1)
+  end
+
+  def draw_balls()
     @balls.each_with_index { |ball,idx|
       ball.draw self
     }
@@ -171,10 +196,9 @@ class Ball
     @direction == [-1,0] and imgname="yspin%02d"%(@step)
     @direction == [0,1] and imgname="xspin%02d"%(ctx.steps-@step)
     @direction == [0,-1] and imgname="xspin%02d"%(@step)
-    pb=ctx.images[imgname]
-    gx = gridcenter1[0] + (gridcenter2[0]-gridcenter1[0]) * @step/ctx.steps - pb.width/2
-    gy = gridcenter1[1] + (gridcenter2[1]-gridcenter1[1]) * @step/ctx.steps - pb.height/2
-    ctx.drawingarea.window.draw_pixbuf(ctx.gc, pb, 0, 0, gx, gy, -1, -1, Gdk::RGB::DITHER_NONE, -1, -1)
+    gx = gridcenter1[0] + (gridcenter2[0]-gridcenter1[0]) * @step/ctx.steps
+    gy = gridcenter1[1] + (gridcenter2[1]-gridcenter1[1]) * @step/ctx.steps
+    ctx.center_image([gx,gy], imgname)
   end
 
   def update(ctx)
