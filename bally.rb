@@ -191,8 +191,8 @@ class Ball
     gridcenter2=ctx.gridcenter(@x + @direction.x, @y + @direction.y)
     @direction == Direction::RIGHT and imgname="yspin%02d"%(ctx.steps-@step)
     @direction == Direction::LEFT and imgname="yspin%02d"%(@step)
-    @direction == Direction::UP and imgname="xspin%02d"%(ctx.steps-@step)
-    @direction == Direction::DOWN and imgname="xspin%02d"%(@step)
+    @direction == Direction::UP and imgname="xspin%02d"%(@step)
+    @direction == Direction::DOWN and imgname="xspin%02d"%(ctx.steps-@step)
     gx = gridcenter1[0] + (gridcenter2[0]-gridcenter1[0]) * @step/ctx.steps
     gy = gridcenter1[1] + (gridcenter2[1]-gridcenter1[1]) * @step/ctx.steps
     ctx.center_image [gx,gy], imgname
