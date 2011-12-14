@@ -1,5 +1,6 @@
 TODO:
 
-move the 'grid' stuff into a separate class.
-
-use a listener to have balls report their expiry
+add a 'next' method on directions
+add sound effects
+improve the images
+work fullscreen (may include switch from gtk to a game library)
