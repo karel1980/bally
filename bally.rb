@@ -1,4 +1,9 @@
-require 'gtk2'
+require 'sdl'
+
+SDL.init SDL::INIT_VIDEO
+Screen = SDL::set_video_mode 800, 600, 24, SDL::SWSURFACE
+BGCOLOR = Screen.format.mapRGB 255, 255, 255
+LINECOLOR = Screen.format.mapRGB 0, 0, 0
 
 class Direction
   attr_accessor :x,:y,:name
@@ -21,7 +26,7 @@ end
 
 
 class Bally
-  attr_accessor :images,:tiles,:height,:width,:steps,:pb,:drawingarea,:gc,:gridwidth,:gridheight,:grid,:start,:finish
+  attr_accessor :images,:tiles,:height,:width,:steps,:pb,:gc,:gridwidth,:gridheight,:grid,:start,:finish
 
   def initialize()
     @width=800
@@ -43,35 +48,14 @@ class Bally
     puts "Preloading images"
     (0..@steps).each { |i|
       name="xspin%02d"%i
-      images[name] = Gdk::Pixbuf.new("images/#{name}.png")
+      images[name] = SDL::Surface.load "images/#{name}.png"
       name="yspin%02d"%i
-      images[name] = Gdk::Pixbuf.new("images/#{name}.png")
+      images[name] = SDL::Surface.load "images/#{name}.png"
     }
     ["up","down","left","right","start","finish"].each { |name|
-      images[name] = Gdk::Pixbuf.new("images/#{name}.png")
+      images[name] = SDL::Surface.load "images/#{name}.png"
     }
 
-    build_ui()
-  end
-
-  def build_ui
-    @window=window=Gtk::Window.new
-    window.set_title("Bally")
-    window.border_width=10
-    window.show_all
-    window.set_size_request(width, height)
-
-    window.signal_connect("destroy") {
-      Gtk.main_quit
-    }
-
-    @drawingarea=Gtk::DrawingArea.new
-    window.add(@drawingarea)
-    @drawingarea.set_size_request(levelsize[0], levelsize[1])
-    @gc=Gdk::GC.new(@drawingarea.window)
-
-    puts x_offset, y_offset
-    puts levelsize
   end
 
   def x_offset()
@@ -88,22 +72,19 @@ class Bally
   end
 
   def draw_grid()
-    @drawingarea.window.draw_rectangle(@drawingarea.style.bg_gc(@drawingarea.state), true, 0, 0, width, height)
-
-    @gc.foreground=Gdk::Color.new(0,0,0)
     w,h = levelsize
     # Draw vertical lines
     (0..@gridwidth).each { |i|
-      @drawingarea.window.draw_line(gc, x_offset + i*w/gridwidth, y_offset, x_offset + i*w/gridwidth, y_offset+h)
+      Screen.draw_line x_offset + i*w/gridwidth, y_offset, x_offset + i*w/gridwidth, y_offset+h, LINECOLOR
     }
     # Draw horizontal lines
     (0..@gridheight).each { |i|
-      @drawingarea.window.draw_line(gc, x_offset, y_offset + i*h/gridheight, x_offset + w, y_offset+ + i*h/gridheight)
+      Screen.draw_line x_offset, y_offset + i*h/gridheight, x_offset + w, y_offset+ + i*h/gridheight, LINECOLOR
     }
   end
 
   # returns a multiple of the grid's size
-  # which fits snugly in the available drawingarea
+  # which fits snugly in the available screen size
   def levelsize
     if (gridwidth * width > gridheight * height)
       return [height * gridwidth / gridheight, height].map { |i| i*0.8 }
@@ -115,33 +96,36 @@ class Bally
   def start
     @balls=[]
 
-    area=drawingarea
-    area.add_events(Gdk::Event::BUTTON_PRESS_MASK)
-    area.signal_connect("button-press-event") { |e,d|
-      row = ((d.y - y_offset)*gridwidth/levelsize[0]).to_int
-      column = ((d.x - x_offset)*gridheight/levelsize[1]).to_int
-      puts row,column,grid[row][column]
-      if @start==[column, row]
-        #clicked on start
-        @balls << Ball.new(@start[0],@start[1],self)
-      elsif grid[column][row]
-        #clicked on an arrow tile
-        order =[ Direction::RIGHT, Direction::DOWN, Direction::LEFT, Direction::UP ]
-        puts @grid[column][row]
-        @grid[column][row] = order[(order.index(@grid[column][row]) + 1) % 4]
-        puts @grid[column][row]
+    running = true
+    while running
+      while event = SDL::Event2.poll
+         case event
+           when SDL::Event2::Quit
+             running = false
+           when SDL::Event2::MouseButtonDown
+             handle_buttondown event
+         end
+
       end
-    }
-    
-    Gtk.timeout_add(30) {
       update_positions()
       update_graphics()
-      true
-    }
+      Screen.flip
+    end
 
-    @window.show_all
-    Gtk.main
   end
+
+  def handle_buttondown(event)
+    row = ((event.y - y_offset)*gridwidth/levelsize[0]).to_int
+    column = ((event.x - x_offset)*gridheight/levelsize[1]).to_int
+    if @start==[column, row]
+      #clicked on start
+      @balls << Ball.new(@start[0],@start[1],self)
+    elsif grid[column][row]
+      #clicked on an arrow tile
+      order =[ Direction::RIGHT, Direction::DOWN, Direction::LEFT, Direction::UP ]
+      @grid[column][row] = order[(order.index(@grid[column][row]) + 1) % 4]
+    end
+  end  
 
   def update_positions
     @balls.each { |ball| ball.update self }
@@ -150,7 +134,7 @@ class Bally
   end
 
   def update_graphics
-    #TODO:clear the drawingarea (which is already double buffered IIUC)
+    Screen.fill_rect 0, 0, width, height, BGCOLOR
 
     draw_grid()
     draw_start_finish()
@@ -164,8 +148,9 @@ class Bally
   end
 
   def center_image(center, image_name)
-    pb=images[image_name]
-    drawingarea.window.draw_pixbuf(gc, pb, 0, 0, center[0]-pb.width/2, center[1]-pb.height/2, -1, -1, Gdk::RGB::DITHER_NONE, -1, -1)
+    #Screen.draw_rect center[0]-10, center[1]-10, 20, 20, LINECOLOR
+    surf=images[image_name]
+    Screen.put(surf, center[0]-surf.w/2, center[1]-surf.h/2)
   end
 
   def draw_balls()
@@ -180,10 +165,7 @@ class Bally
         dir=@grid[row][col]
         if dir
           center = gridcenter(row,col)
-          pb = images[dir.name]
-          gx = center[0] - pb.width/2
-          gy = center[1] - pb.height/2
-          drawingarea.window.draw_pixbuf(gc, pb, 0, 0, gx, gy, -1, -1, Gdk::RGB::DITHER_NONE, -1, -1)
+          center_image center, dir.name
         end
       }
     }
@@ -202,10 +184,6 @@ class Ball
     @y=y
     @direction=Direction::RIGHT
     @step=0
-    @kleur=0
-
-    puts "x = #{x}"
-    puts "y = #{y}"
   end
   
   def draw(ctx)
@@ -217,7 +195,7 @@ class Ball
     @direction == Direction::DOWN and imgname="xspin%02d"%(@step)
     gx = gridcenter1[0] + (gridcenter2[0]-gridcenter1[0]) * @step/ctx.steps
     gy = gridcenter1[1] + (gridcenter2[1]-gridcenter1[1]) * @step/ctx.steps
-    ctx.center_image([gx,gy], imgname)
+    ctx.center_image [gx,gy], imgname
   end
 
   def update(ctx)
@@ -226,7 +204,6 @@ class Ball
       @step=0
       @x+=@direction.x
       @y+=@direction.y
-      puts "new ball position is #{@x},#{@y}"
 
       if [x,y] == ctx.finish
         puts "TODO: play a 'thank you' sound"
