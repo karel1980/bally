@@ -1,7 +1,9 @@
 require 'sdl'
 
 SDL.init SDL::INIT_VIDEO
-Screen = SDL::set_video_mode 800, 600, 24, SDL::SWSURFACE
+#Screen = SDL::set_video_mode 800, 600, 24, SDL::SWSURFACE
+#FULLSCREEN... apparently SDL_FULLSCREEN isn't defined (or it has a different name -- will look it up later)
+Screen = SDL::set_video_mode 800, 600, 24, 0x80000000
 BGCOLOR = Screen.format.mapRGB 255, 255, 255
 LINECOLOR = Screen.format.mapRGB 0, 0, 0
 
@@ -104,6 +106,8 @@ class Bally
              running = false
            when SDL::Event2::MouseButtonDown
              handle_buttondown event
+           when SDL::Event2::KeyDown
+             running = false if event.sym==27
          end
 
       end
