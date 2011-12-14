@@ -1,11 +1,12 @@
 require 'sdl'
 
-SDL.init SDL::INIT_VIDEO
+SDL.init SDL::INIT_VIDEO & SDL::INIT_AUDIO
 #Screen = SDL::set_video_mode 800, 600, 24, SDL::SWSURFACE
 #FULLSCREEN... apparently SDL_FULLSCREEN isn't defined (or it has a different name -- will look it up later)
 Screen = SDL::set_video_mode 800, 600, 24, 0x80000000
 BGCOLOR = Screen.format.mapRGB 255, 255, 255
 LINECOLOR = Screen.format.mapRGB 0, 0, 0
+SDL::Mixer.open
 
 class Direction
   attr_accessor :x,:y,:name
@@ -28,7 +29,7 @@ end
 
 
 class Bally
-  attr_accessor :images,:tiles,:height,:width,:steps,:pb,:gc,:gridwidth,:gridheight,:grid,:start,:finish
+  attr_accessor :images,:tiles,:height,:width,:steps,:pb,:gc,:gridwidth,:gridheight,:grid,:start,:finish,:sounds
 
   def initialize()
     @width=800
@@ -45,19 +46,23 @@ class Bally
     @grid[3][2]=Direction::LEFT
     @grid[6][2]=Direction::UP
 
+    @sounds={}
     @images={}
     @steps=25
     puts "Preloading images"
     (0..@steps).each { |i|
       name="xspin%02d"%i
-      images[name] = SDL::Surface.load "images/#{name}.png"
+      images[name] = SDL::Surface.load "media/images/#{name}.png"
       name="yspin%02d"%i
-      images[name] = SDL::Surface.load "images/#{name}.png"
+      images[name] = SDL::Surface.load "media/images/#{name}.png"
     }
     ["up","down","left","right","start","finish"].each { |name|
-      images[name] = SDL::Surface.load "images/#{name}.png"
+      images[name] = SDL::Surface.load "media/images/#{name}.png"
     }
-
+    puts "Preloading sound"
+    ["woohoo", "wheee", "joepie", "woo"].each { |name|
+      sounds[name] = SDL::Mixer::Music.load("media/sounds/#{name}.ogg")
+    }
   end
 
   def x_offset()
@@ -124,6 +129,8 @@ class Bally
     if @start==[column, row]
       #clicked on start
       @balls << Ball.new(@start[0],@start[1],self)
+      roll_snd=["woohoo","wheee","joepie","woo"]
+      SDL::Mixer.play_music(sounds[roll_snd[rand(roll_snd.size)]],1)
     elsif grid[column][row]
       #clicked on an arrow tile
       order =[ Direction::RIGHT, Direction::DOWN, Direction::LEFT, Direction::UP ]
@@ -210,7 +217,7 @@ class Ball
       @y+=@direction.y
 
       if [x,y] == ctx.finish
-        puts "TODO: play a 'thank you' sound"
+        #TODO: thank you sound
         ctx.ball_expired(self)
       elsif @x < 0 || @x >= ctx.gridwidth || @y < 0 || @y >= ctx.gridheight
         ctx.ball_expired(self)
