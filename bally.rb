@@ -1,7 +1,27 @@
 require 'gtk2'
 
+class Direction
+  attr_accessor :x,:y,:name
+  def initialize(x,y, name)
+    @x=x
+    @y=y
+    @name=name
+  end
+
+  def pair
+    return x,y
+  end
+
+  RIGHT = Direction.new(1,0, "right")
+  LEFT = Direction.new(-1,0, "left")
+  UP = Direction.new(0,-1, "up")
+  DOWN = Direction.new(0,1, "down")
+
+end
+
+
 class Bally
-  attr_accessor :images,:tiles,:height,:width,:steps,:pb,:drawingarea,:gc,:gridwidth,:gridheight,:grid
+  attr_accessor :images,:tiles,:height,:width,:steps,:pb,:drawingarea,:gc,:gridwidth,:gridheight,:grid,:start,:finish
 
   def initialize()
     @width=800
@@ -13,10 +33,10 @@ class Bally
     @grid=[]
     @gridwidth.times { @grid << Array.new(gridheight) }
     @start=[0,5]
-    @stop=[6,9]
-    @grid[3][5]=[0,-1]
-    @grid[3][2]=[1,0]
-    @grid[6][2]=[0,1]
+    @finish=[6,9]
+    @grid[3][5]=Direction::UP
+    @grid[3][2]=Direction::LEFT
+    @grid[6][2]=Direction::UP
 
     @images={}
     @steps=25
@@ -27,7 +47,7 @@ class Bally
       name="yspin%02d"%i
       images[name] = Gdk::Pixbuf.new("images/#{name}.png")
     }
-    ["up","down","left","right","start","stop"].each { |name|
+    ["up","down","left","right","start","finish"].each { |name|
       images[name] = Gdk::Pixbuf.new("images/#{name}.png")
     }
 
@@ -51,6 +71,7 @@ class Bally
     @gc=Gdk::GC.new(@drawingarea.window)
 
     puts x_offset, y_offset
+    puts levelsize
   end
 
   def x_offset()
@@ -85,9 +106,9 @@ class Bally
   # which fits snugly in the available drawingarea
   def levelsize
     if (gridwidth * width > gridheight * height)
-      return [width, width * gridheight / gridwidth]
+      return [height * gridwidth / gridheight, height].map { |i| i*0.8 }
     else
-      return [height * gridwidth / gridheight, height]
+      return [width, width * gridheight / gridwidth].map { |i| i*0.8 }
     end
   end
 
@@ -99,11 +120,16 @@ class Bally
     area.signal_connect("button-press-event") { |e,d|
       row = ((d.y - y_offset)*gridwidth/levelsize[0]).to_int
       column = ((d.x - x_offset)*gridheight/levelsize[1]).to_int
-      puts "clicked in ", row, column
-
-      puts @start, [row,column]
-      if @start==[row,column]
-        @balls << Ball.new(0,5,self)
+      puts row,column,grid[row][column]
+      if @start==[column, row]
+        #clicked on start
+        @balls << Ball.new(@start[0],@start[1],self)
+      elsif grid[column][row]
+        #clicked on an arrow tile
+        order =[ Direction::RIGHT, Direction::DOWN, Direction::LEFT, Direction::UP ]
+        puts @grid[column][row]
+        @grid[column][row] = order[(order.index(@grid[column][row]) + 1) % 4]
+        puts @grid[column][row]
       end
     }
     
@@ -127,14 +153,14 @@ class Bally
     #TODO:clear the drawingarea (which is already double buffered IIUC)
 
     draw_grid()
-    draw_start_stop()
+    draw_start_finish()
     draw_arrows()
     draw_balls()
   end
 
-  def draw_start_stop()
+  def draw_start_finish()
     center_image gridcenter(@start[0], @start[1]), "start"
-    center_image gridcenter(@stop[0], @stop[1]), "stop"
+    center_image gridcenter(@finish[0], @finish[1]), "finish"
   end
 
   def center_image(center, image_name)
@@ -154,20 +180,13 @@ class Bally
         dir=@grid[row][col]
         if dir
           center = gridcenter(row,col)
-          pb = images[arrow_image dir]
+          pb = images[dir.name]
           gx = center[0] - pb.width/2
           gy = center[1] - pb.height/2
           drawingarea.window.draw_pixbuf(gc, pb, 0, 0, gx, gy, -1, -1, Gdk::RGB::DITHER_NONE, -1, -1)
         end
       }
     }
-  end
-
-  def arrow_image(dir)
-    return "up" if dir[1]==-1
-    return "down" if dir[1]==1
-    return "left" if dir[0]==-1
-    return "right" if dir[0]==1
   end
 
   def ball_expired(ball)
@@ -181,7 +200,7 @@ class Ball
   def initialize(x,y,ctx)
     @x=x
     @y=y
-    @direction=[1,0]
+    @direction=Direction::RIGHT
     @step=0
     @kleur=0
 
@@ -191,11 +210,11 @@ class Ball
   
   def draw(ctx)
     gridcenter1=ctx.gridcenter(@x, @y)
-    gridcenter2=ctx.gridcenter(@x + @direction[0], @y + @direction[1])
-    @direction == [1,0] and imgname="yspin%02d"%(ctx.steps-@step)
-    @direction == [-1,0] and imgname="yspin%02d"%(@step)
-    @direction == [0,1] and imgname="xspin%02d"%(ctx.steps-@step)
-    @direction == [0,-1] and imgname="xspin%02d"%(@step)
+    gridcenter2=ctx.gridcenter(@x + @direction.x, @y + @direction.y)
+    @direction == Direction::RIGHT and imgname="yspin%02d"%(ctx.steps-@step)
+    @direction == Direction::LEFT and imgname="yspin%02d"%(@step)
+    @direction == Direction::UP and imgname="xspin%02d"%(ctx.steps-@step)
+    @direction == Direction::DOWN and imgname="xspin%02d"%(@step)
     gx = gridcenter1[0] + (gridcenter2[0]-gridcenter1[0]) * @step/ctx.steps
     gy = gridcenter1[1] + (gridcenter2[1]-gridcenter1[1]) * @step/ctx.steps
     ctx.center_image([gx,gy], imgname)
@@ -205,11 +224,14 @@ class Ball
     @step+=1
     if @step>=ctx.steps
       @step=0
-      @x+=@direction[0]
-      @y+=@direction[1]
+      @x+=@direction.x
+      @y+=@direction.y
       puts "new ball position is #{@x},#{@y}"
 
-      if @x < 0 || @x >= ctx.gridwidth || @y < 0 || @y >= ctx.gridheight
+      if [x,y] == ctx.finish
+        puts "TODO: play a 'thank you' sound"
+        ctx.ball_expired(self)
+      elsif @x < 0 || @x >= ctx.gridwidth || @y < 0 || @y >= ctx.gridheight
         ctx.ball_expired(self)
       elsif ctx.grid[x][y]
         @direction=ctx.grid[x][y]
