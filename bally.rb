@@ -1,13 +1,5 @@
 require 'sdl'
 
-SDL.init SDL::INIT_VIDEO & SDL::INIT_AUDIO
-#Screen = SDL::set_video_mode 800, 600, 24, SDL::SWSURFACE
-#FULLSCREEN... apparently SDL_FULLSCREEN isn't defined (or it has a different name -- will look it up later)
-Screen = SDL::set_video_mode 800, 600, 24, 0x80000000
-BGCOLOR = Screen.format.mapRGB 255, 255, 255
-LINECOLOR = Screen.format.mapRGB 0, 0, 0
-SDL::Mixer.open
-
 class Direction
   attr_accessor :x,:y,:name
   def initialize(x,y, name)
@@ -29,7 +21,7 @@ end
 
 
 class Bally
-  attr_accessor :images,:tiles,:height,:width,:steps,:pb,:gc,:gridwidth,:gridheight,:grid,:start,:finish,:sounds
+  attr_accessor :images,:tiles,:height,:width,:steps,:pb,:gc,:gridwidth,:gridheight,:grid,:start,:finish,:sounds,:screen,:bgcolor,:linecolor
 
   def initialize()
     @width=800
@@ -63,6 +55,18 @@ class Bally
     ["woohoo", "wheee", "joepie", "woo"].each { |name|
       sounds[name] = SDL::Mixer::Music.load("media/sounds/#{name}.ogg")
     }
+
+    init_sdl()
+  end
+
+  def init_sdl()
+    #screen = SDL::set_video_mode 800, 600, 24, SDL::SWSURFACE
+    #FULLSCREEN... apparently SDL_FULLSCREEN isn't defined (or it has a different name -- will look it up later)
+    SDL.init SDL::INIT_VIDEO & SDL::INIT_AUDIO
+    @screen= SDL::set_video_mode 800, 600, 24, 0x80000000
+    SDL::Mixer.open
+    @bgcolor = screen.format.mapRGB 255, 255, 255
+    @linecolor = screen.format.mapRGB 0, 0, 0
   end
 
   def x_offset()
@@ -82,11 +86,11 @@ class Bally
     w,h = levelsize
     # Draw vertical lines
     (0..@gridwidth).each { |i|
-      Screen.draw_line x_offset + i*w/gridwidth, y_offset, x_offset + i*w/gridwidth, y_offset+h, LINECOLOR
+      screen.draw_line x_offset + i*w/gridwidth, y_offset, x_offset + i*w/gridwidth, y_offset+h, linecolor
     }
     # Draw horizontal lines
     (0..@gridheight).each { |i|
-      Screen.draw_line x_offset, y_offset + i*h/gridheight, x_offset + w, y_offset+ + i*h/gridheight, LINECOLOR
+      screen.draw_line x_offset, y_offset + i*h/gridheight, x_offset + w, y_offset+ + i*h/gridheight, linecolor
     }
   end
 
@@ -118,7 +122,7 @@ class Bally
       end
       update_positions()
       update_graphics()
-      Screen.flip
+      screen.flip
     end
 
   end
@@ -145,7 +149,9 @@ class Bally
   end
 
   def update_graphics
-    Screen.fill_rect 0, 0, width, height, BGCOLOR
+    puts "ug screen:", screen
+    puts "ug @screen:", @screen
+    screen.fill_rect 0, 0, width, height, bgcolor
 
     draw_grid()
     draw_start_finish()
@@ -159,9 +165,9 @@ class Bally
   end
 
   def center_image(center, image_name)
-    #Screen.draw_rect center[0]-10, center[1]-10, 20, 20, LINECOLOR
+    #screen.draw_rect center[0]-10, center[1]-10, 20, 20, linecolor
     surf=images[image_name]
-    Screen.put(surf, center[0]-surf.w/2, center[1]-surf.h/2)
+    screen.put(surf, center[0]-surf.w/2, center[1]-surf.h/2)
   end
 
   def draw_balls()
