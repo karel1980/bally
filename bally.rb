@@ -28,6 +28,8 @@ class Bally
     @height=600
     @gridwidth=10
     @gridheight=10
+    @border=20
+
     @expired_balls=[]
 
     @grid=[]
@@ -37,6 +39,7 @@ class Bally
     @grid[3][5]=Direction::UP
     @grid[3][2]=Direction::LEFT
     @grid[6][2]=Direction::UP
+    @grid[6][5]=Direction::LEFT
 
     @sounds={}
     @images={}
@@ -69,13 +72,20 @@ class Bally
     @linecolor = screen.format.mapRGB 0, 0, 0
   end
 
+  def fit_width()
+    w=width-(2*@border)
+    h=height-(2*@border)
+    res= @gridwidth*w <= gridheight*h
+    return res
+  end
+
   def x_offset()
-    return 0 if @height >= @width
-    return (@width - @height) / 2
+    return @border if fit_width()
+    return (@width - @height) / 2 + @border
   end
   def y_offset()
-    return 0 if @height <= @width
-    return (@height - @width) / 2
+    return (@height - @width) if fit_width()
+    return @border
   end
 
   def gridcenter(x,y)
@@ -97,11 +107,10 @@ class Bally
   # returns a multiple of the grid's size
   # which fits snugly in the available screen size
   def levelsize
-    if (gridwidth * width > gridheight * height)
-      return [height * gridwidth / gridheight, height].map { |i| i*0.8 }
-    else
-      return [width, width * gridheight / gridwidth].map { |i| i*0.8 }
-    end
+    w=@width-(2*@border)
+    h=@height-(2*@border)
+    return [w, w * gridwidth / gridheight ] if fit_width()
+    return [h * gridheight / gridwidth, h]
   end
 
   def start
@@ -149,8 +158,6 @@ class Bally
   end
 
   def update_graphics
-    puts "ug screen:", screen
-    puts "ug @screen:", @screen
     screen.fill_rect 0, 0, width, height, bgcolor
 
     draw_grid()
